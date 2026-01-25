@@ -1,2 +1,3 @@
 #Prueba
-print("Hola mundo")
+nombre = "Sandra"
+print(nombre)
