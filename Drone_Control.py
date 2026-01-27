@@ -1,42 +1,60 @@
 import rclpy
 from rclpy.node import Node
-from px4_msgs.msg import TrajectorySetpoint, VehicleCommand, OffboardControlMode
 
-import time
+from px4_msgs.msg import (
+    OffboardControlMode,
+    TrajectorySetpoint,
+    VehicleCommand
+)
+
 
 class DroneController(Node):
+
     def __init__(self):
-        super().__init__('drone_ai_node')
-        # Publicadores PX4 para control
-        self.command_pub = self.create_publisher(OffboardControlMode,'/fmu/in/offboard_control_mode', 10)
-        self.setpoint_pub = self.create_publisher(TrajectorySetpoint, '/fmu/in/trajectory_setpoint', 10)
-        self.command_pub = self.create_publisher(VehicleCommand, '/fmu/in/vehicle_command', 10)
-                
-        # Temporizador para enviar comandos constantes (10Hz)
-            self.timer = self.create_timer(0.1, self.timer_callback)
-            self.counter = 0
-            self.get_logger().info("Offboard takeoff node started")
+        super().__init__('drone_controller')
+
+        # Publicadores CORRECTOS
+        self.offboard_pub = self.create_publisher(
+            OffboardControlMode,
+            '/fmu/in/offboard_control_mode',
+            10
+        )
+
+        self.setpoint_pub = self.create_publisher(
+            TrajectorySetpoint,
+            '/fmu/in/trajectory_setpoint',
+            10
+        )
+
+        self.command_pub = self.create_publisher(
+            VehicleCommand,
+            '/fmu/in/vehicle_command',
+            10
+        )
+
+        self.counter = 0
+        self.timer = self.create_timer(0.1, self.timer_callback)
+
+        self.get_logger().info("Drone OFFBOARD controller started")
+
 
     def timer_callback(self):
-        # Publicar modo OFFBOARD (SIEMPRE)
+
+        # 1️⃣ OFFBOARD control mode (OBLIGATORIO)
         offboard_msg = OffboardControlMode()
         offboard_msg.position = True
-        offboard_msg.velocity = False
-        offboard_msg.acceleration = False
-        offboard_msg.attitude = False
-        offboard_msg.body_rate = False
         offboard_msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.offboard_pub.publish(offboard_msg)
 
-        # Enviar setpoint de posición (despegue)
+        # 2️⃣ Setpoint de despegue
         setpoint = TrajectorySetpoint()
-        setpoint.position = [0.0, 0.0, -2.0]  # Z negativa = subir
+        setpoint.position = [0.0, 0.0, -5.0]  # Z negativa = subir
         setpoint.yaw = 0.0
         setpoint.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.setpoint_pub.publish(setpoint)
 
-        # Después de algunos ciclos → OFFBOARD + ARM
-        if self.counter == 10:
+        # 3️⃣ Activar OFFBOARD y ARMAR después de varios ciclos
+        if self.counter == 20:
             self.set_offboard_mode()
             self.arm()
 
@@ -77,7 +95,7 @@ class DroneController(Node):
 
 def main():
     rclpy.init()
-    node = OffboardTakeoff()
+    node = DroneController()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
