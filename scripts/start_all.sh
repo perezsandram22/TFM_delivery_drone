@@ -1,6 +1,19 @@
 #!/bin/bash
 # Script para iniciar automáticamente el sistema de simulación de dron
-# Versión: con TF Publisher para visualización 3D en Foxglove
+# Versión: con supresión de errores RTPS_READER_HISTORY
+
+# --- Suprimir logs molestos de Fast-RTPS ---
+export FASTRTPS_DEFAULT_PROFILES_FILE=/dev/null
+export RTPS_LOG_LEVEL=3
+
+# --- Configuración de tmux (directorio alternativo) ---
+export TMPDIR=~/tmux-sockets
+export TMUX_TMPDIR="$TMPDIR"
+mkdir -p "$TMPDIR"
+if [ ! -w "$TMPDIR" ]; then
+    echo "ERROR: $TMPDIR no es escribible. Saliendo."
+    exit 1
+fi
 
 # Colores para output
 RED='\033[0;31m'
@@ -36,9 +49,8 @@ fi
 echo -e "${GREEN}✅ Contenedor Docker listo${NC}"
 echo ""
 
+# Limpieza de sesiones y procesos previos
 echo -e "${CYAN}Configurando sesión tmux...${NC}"
-
-# === LIMPIEZA COMPLETA ===
 echo -e "${YELLOW}🧹 Limpiando sesiones y procesos anteriores...${NC}"
 tmux kill-server 2>/dev/null
 sudo pkill -f MicroXRCEAgent 2>/dev/null
@@ -46,14 +58,13 @@ sudo pkill -f px4 2>/dev/null
 sudo pkill -f gz 2>/dev/null
 sudo pkill -f rosbridge 2>/dev/null
 sudo pkill -f tf_publisher 2>/dev/null
-sudo rm -rf /tmp/* 2>/dev/null
 sleep 2
 echo -e "${GREEN}✅ Limpieza completada${NC}"
 
-# === CREAR VENTANAS ===
+# Crear ventanas tmux
 echo -e "${CYAN}Creando ventanas tmux...${NC}"
 
-# Ventana 0: DDS Agent
+# Ventana 0: DDS Agent (con buffers ampliados)
 tmux new-session -d -s drone_sim -n "DDS Agent"
 tmux send-keys -t drone_sim:0 "cd ~/drone_project/Micro-XRCE-DDS-Agent/build && ./MicroXRCEAgent udp4 -p 8888" C-m
 sleep 1
@@ -63,12 +74,12 @@ tmux new-window -t drone_sim -n "PX4"
 tmux send-keys -t drone_sim:1 "cd ~/drone_project/px4/PX4-Autopilot && HEADLESS=1 make px4_sitl gz_x500" C-m
 sleep 2
 
-# Ventana 2: ROS2 Control (espacio para ejecutar nodos)
+# Ventana 2: ROS2 Control
 tmux new-window -t drone_sim -n "ROS2"
 tmux send-keys -t drone_sim:2 "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && echo \"✅ ROS 2 listo\" && exec bash'" C-m
 sleep 1
 
-# Ventana 3: Monitor local (posición)
+# Ventana 3: Monitor
 tmux new-window -t drone_sim -n "Monitor"
 tmux send-keys -t drone_sim:3 "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && echo \"📊 Monitoreando posición z...\" && ros2 topic echo /fmu/out/vehicle_local_position_v1 | grep -E \"x:|y:|z:\"'" C-m
 sleep 1
@@ -79,13 +90,13 @@ tmux new-window -t drone_sim -n "Rosbridge"
 tmux send-keys -t drone_sim:Rosbridge "docker exec -it drone_container bash -c 'source /opt/ros/jazzy/setup.bash && source /ros2_ws/install/setup.bash && ros2 launch rosbridge_server rosbridge_websocket_launch.xml'" C-m
 sleep 2
 
-# Ventana 5: TF Publisher (publica transformaciones para Foxglove 3D)
+# Ventana 5: TF Publisher
 echo -e "${CYAN}🧭 Creando TF Publisher (transformaciones para 3D)...${NC}"
 tmux new-window -t drone_sim -n "TF"
 tmux send-keys -t drone_sim:TF "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && python3 /ros2_ws/src/tf_publisher.py'" C-m
 sleep 1
 
-# === VERIFICACIÓN ===
+# Verificación
 WINDOW_COUNT=$(tmux list-windows -t drone_sim | wc -l)
 echo -e "${GREEN}✅ $WINDOW_COUNT ventanas creadas${NC}"
 echo ""
@@ -110,5 +121,4 @@ echo "  - Lista: Ctrl+b w"
 echo "  - Salir sin cerrar: Ctrl+b d"
 echo ""
 
-# Adjuntar automáticamente
 tmux attach -t drone_sim
