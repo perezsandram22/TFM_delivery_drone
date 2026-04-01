@@ -28,3 +28,4 @@ px4/PX4-Autopilot/build_*/
 *.tmp
 *.temp
 *.cache
+dashboard/server.log
