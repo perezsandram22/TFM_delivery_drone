@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script para iniciar automáticamente el sistema de simulación de dron
-# Versión: con tmux usando directorio alternativo en $HOME para evitar problemas de espacio en /tmp
+# Versión: con TF Publisher y GPS Publisher en tmux
 
 # --- Configurar tmux para que use un directorio alternativo ---
 export TMPDIR=~/tmux-sockets
@@ -55,6 +55,7 @@ sudo pkill -f px4 2>/dev/null
 sudo pkill -f gz 2>/dev/null
 sudo pkill -f rosbridge 2>/dev/null
 sudo pkill -f tf_publisher 2>/dev/null
+sudo pkill -f gps_publisher 2>/dev/null
 sudo rm -rf /tmp/* 2>/dev/null
 sleep 2
 echo -e "${GREEN}✅ Limpieza completada${NC}"
@@ -72,12 +73,12 @@ tmux new-window -t drone_sim -n "PX4"
 tmux send-keys -t drone_sim:1 "cd ~/drone_project/px4/PX4-Autopilot && HEADLESS=1 make px4_sitl gz_x500" C-m
 sleep 2
 
-# Ventana 2: ROS2 Control
+# Ventana 2: ROS2 Control (espacio para ejecutar nodos)
 tmux new-window -t drone_sim -n "ROS2"
 tmux send-keys -t drone_sim:2 "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && echo \"✅ ROS 2 listo\" && exec bash'" C-m
 sleep 1
 
-# Ventana 3: Monitor
+# Ventana 3: Monitor local (posición)
 tmux new-window -t drone_sim -n "Monitor"
 tmux send-keys -t drone_sim:3 "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && echo \"📊 Monitoreando posición z...\" && ros2 topic echo /fmu/out/vehicle_local_position_v1 | grep -E \"x:|y:|z:\"'" C-m
 sleep 1
@@ -88,10 +89,16 @@ tmux new-window -t drone_sim -n "Rosbridge"
 tmux send-keys -t drone_sim:Rosbridge "docker exec -it drone_container bash -c 'source /opt/ros/jazzy/setup.bash && source /ros2_ws/install/setup.bash && ros2 launch rosbridge_server rosbridge_websocket_launch.xml'" C-m
 sleep 2
 
-# Ventana 5: TF Publisher
+# Ventana 5: TF Publisher (publica transformaciones para 3D)
 echo -e "${CYAN}🧭 Creando TF Publisher (transformaciones para 3D)...${NC}"
 tmux new-window -t drone_sim -n "TF"
-tmux send-keys -t drone_sim:TF "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && python3 /ros2_ws/src/tf_publisher.py'" C-m
+tmux send-keys -t drone_sim:TF "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && python3 -u /ros2_ws/src/tf_publisher.py'" C-m
+sleep 1
+
+# Ventana 6: GPS Publisher (publica /drone_gps para el mapa)
+echo -e "${GREEN}🌍 Creando GPS Publisher (para mapa satelital)...${NC}"
+tmux new-window -t drone_sim -n "GPS"
+tmux send-keys -t drone_sim:GPS "docker exec -it drone_container bash -c 'cd /ros2_ws && source install/setup.bash && python3 -u /ros2_ws/src/mission/gps_publisher.py'" C-m
 sleep 1
 
 # === VERIFICACIÓN ===
@@ -105,12 +112,14 @@ echo "  2: ROS2         - Nodo de control (offboard_control) y misión"
 echo "  3: Monitor      - Monitoreo local (posición z)"
 echo "  4: Rosbridge    - Servidor WebSocket (puerto 9090) para Foxglove"
 echo "  5: TF           - Publica transformaciones map → base_link para 3D"
+echo "  6: GPS          - Publica coordenadas geográficas (/drone_gps) para el mapa"
 echo ""
 echo -e "${GREEN}📌 Para visualizar en Foxglove Desktop:${NC}"
 echo "   1. Abre Foxglove Desktop"
 echo "   2. Conexión → Rosbridge → ws://130.61.118.51:9090"
-echo "   3. En panel 3D: carga el URDF (ej. x500.urdf) y configura fixed frame = map"
+echo "   3. En panel 3D: carga el URDF (ej. x500_custom.urdf) y configura fixed frame = map"
 echo "   4. Activa la transformación map → base_link en la lista de Transforms"
+echo "   5. En panel de mapa: suscríbete a /drone_gps (tipo GPS) para ver la trayectoria sobre satélite"
 echo ""
 echo -e "${YELLOW}Comandos tmux:${NC}"
 echo "  - Navegar: Ctrl+b n (siguiente) / Ctrl+b p (anterior)"
