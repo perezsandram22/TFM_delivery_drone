@@ -46,3 +46,14 @@ Además del algoritmo TSP clásico, esta rama incluye un agente basado en **Prox
 | RL (PPO) | 214,333.46 | 0.0099 |
 
 El RL es ~50,000 veces más rápido, adecuado para entornos dinámicos.
+
+## 🤖 Aprendizaje por Refuerzo (RL)
+Además del algoritmo TSP clásico, esta rama incluye un agente basado en **Proximal Policy Optimization (PPO)** para resolver el TSP de forma aproximada pero muy rápida. Los detalles se encuentran en la carpeta `optimization/rl/`.
+
+**Resultados comparativos (10 nodos)**
+| Método | Distancia (m) | Tiempo (s) |
+|--------|---------------|------------|
+| TSP exacto | 122,085.68 | 493.55 |
+| RL (PPO) | 214,333.46 | 0.0099 |
+
+El RL es ~50,000 veces más rápido, adecuado para entornos dinámicos.
