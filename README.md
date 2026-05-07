@@ -1,14 +1,37 @@
-# TFM: Sistema de Simulación delivery con drone optimizando las rutas
 
-## Cómo iniciar el sistema
-```bash
-cd ~/drone_project
-./scripts/start_all.sh
+### 4. `optimizacion/README.md`
 
-# En la ventana ROS2 (tmux ventana 2), dentro del contenedor:
-cd /ros2_ws
-./src/mission/simple_mission.sh
+```markdown
+# Rama optimizacion: Algoritmos de Optimización de Rutas (TSP)
 
-# Visualización en Foxglove
-Conecta a ws://130.61.118.51:9090 con tipo Rosbridge.
-Añade paneles Plot y 3D.
+## 🎯 Propósito
+Contiene el algoritmo de optimización de rutas basado en el Problema del Viajante (TSP), utilizado como referencia para comparar con el modelo de aprendizaje por refuerzo (RL).
+
+## 📁 Archivos Clave
+- `src/optimization/route_optimizer.py`: Implementación del TSP exacto (fuerza bruta) y heurístico (greedy + 2‑opt).
+
+## 🧠 Descripción del Algoritmo
+- **Fuerza bruta**: Evalúa todas las permutaciones, garantiza solución óptima para n ≤ 8.
+- **Greedy**: Construye ruta eligiendo el vecino más cercano en cada paso.
+- **2‑opt**: Mejora local invirtiendo segmentos de la ruta para eliminar cruces.
+
+## 📈 Complejidad
+- Fuerza bruta: O(n!)
+- Greedy + 2‑opt: O(n²)
+
+## 📊 Resultados de Escalabilidad
+| Nodos | TSP Tiempo (s) | Error RL (%) |
+|-------|----------------|--------------|
+| 5 | 0.019 | 59.30% |
+| 8 | 4.78 | 81.76% |
+| 10 | 493.55 | 75.56% |
+
+## 🚀 Uso
+```python
+from route_optimizer import RouteOptimizer
+
+opt = RouteOptimizer()
+opt.add_waypoint(5, 0, -2.5)
+opt.add_waypoint(0, 5, -2.5)
+route, dist = opt.optimize_tsp((0, 0, -2.5))
+print(f"Óptimo: {route}, Distancia: {dist:.2f} m")
